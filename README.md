@@ -1,4 +1,4 @@
-# WeatherGPT — SIH26068 Starter Scaffold
+# WeatherGPT
 
 **Problem Statement:** AI-Based Conversational AI for Weather Forecasting, Alerts, and Climate Information
 **Sponsor:** Ministry of Earth Sciences (MoES)
