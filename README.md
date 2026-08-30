@@ -64,10 +64,3 @@ Open-Meteo (free, no API key required) and reply.
 3. Add multilingual support — even 2–3 Indian languages is a strong demo (3–4 hrs)
 4. Build out proper alert logic + push notification mock (3–4 hrs)
 5. Polish UI, add voice input, prepare demo script (remaining time)
-
-## Notes
-
-- Always cross-check the exact problem statement requirements and any provided
-  datasets on the official portal: https://sih.gov.in/sih2026PS
-- This scaffold uses Open-Meteo purely as a free, no-key data source for
-  development speed — swap for IMD/MoES data if provided.
