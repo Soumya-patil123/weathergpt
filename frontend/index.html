@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WeatherGPT </title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #121b2e;
+    --accent: #4da3ff;
+    --accent2: #7ee3c8;
+    --text: #e8eefc;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(160deg, var(--bg), #0a1a2f);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 { margin: 0; font-size: 1.8rem; }
+  header h1 span { color: var(--accent2); }
+  header p { color: var(--muted); margin-top: 4px; }
+
+  .container {
+    width: 100%;
+    max-width: 640px;
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+
+  .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  input {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #24314d;
+    background: #0e1626;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  input::placeholder { color: var(--muted); }
+  button {
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #0b1220;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent2); }
+
+  #chat {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 55vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .msg {
+    padding: 12px 14px;
+    border-radius: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    font-size: 0.92rem;
+  }
+  .user { background: #1b2b4a; align-self: flex-end; max-width: 80%; }
+  .bot { background: #0e2a24; border: 1px solid #1c4a3d; }
+  .error { background: #3a1414; border: 1px solid #6b1f1f; color: #ffb4b4; }
+
+  footer { margin-top: 20px; color: var(--muted); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Weather<span>GPT</span></h1>
+  
+</header>
+
+<div class="container">
+  <div class="input-row">
+    <input id="place" type="text" placeholder="City name (e.g. Bengaluru)" />
+  </div>
+  <div class="input-row">
+    <input id="message" type="text" placeholder="Ask about the weather..." />
+    <button onclick="sendMessage()">Ask</button>
+  </div>
+  <div id="chat"></div>
+</div>
+
+<footer>Starter scaffold for Smart India Hackathon 2026 · replace rule-based logic with an LLM call for the final build</footer>
+
+<script>
+const API_BASE = "http://localhost:5000";
+
+function addMessage(text, cls) {
+  const chat = document.getElementById("chat");
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendMessage() {
+  const place = document.getElementById("place").value.trim();
+  const message = document.getElementById("message").value.trim();
+
+  if (!place) {
+    addMessage("Please enter a city name first.", "error");
+    return;
+  }
+  if (!message) return;
+
+  addMessage(message, "user");
+  document.getElementById("message").value = "";
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ place, message }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      addMessage(data.error || "Something went wrong.", "error");
+      return;
+    }
+    addMessage(data.reply, "bot");
+  } catch (err) {
+    addMessage("Could not reach the backend. Is app.py running on port 5000?", "error");
+  }
+}
+
+document.getElementById("message").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+</script>
+
+</body>
+</html>
