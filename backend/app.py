@@ -13,6 +13,7 @@ and a simple rule-based responder you can swap for an LLM call
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from datetime import datetime, date
 import requests
 
 app = Flask(__name__)
@@ -63,14 +64,19 @@ def get_weather(lat, lon):
     return resp.json()
 
 
-def generate_reply(place, weather_json, user_message):
-    """
-    Rule-based reply generator (starter version).
+def friendly_day(date_str):
+    """Turn '2026-08-30' into 'Today', 'Tomorrow', or 'Sunday' etc."""
+    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    today = date.today()
+    diff = (d - today).days
+    if diff == 0:
+        return "Today"
+    if diff == 1:
+        return "Tomorrow"
+    return d.strftime("%A")
 
-    TODO for hackathon: replace this with a call to an LLM so the assistant
-    can handle free-form questions, multiple languages, and follow-ups.
-    Example swap-in points are marked below.
-    """
+
+def generate_reply(place, weather_json, user_message):
     current = weather_json.get("current", {})
     daily = weather_json.get("daily", {})
 
@@ -87,29 +93,18 @@ def generate_reply(place, weather_json, user_message):
 
     if daily.get("time"):
         reply += "Next few days:\n"
-        for i, date in enumerate(daily["time"][:5]):
+        for i, date_str in enumerate(daily["time"][:5]):
             tmax = daily["temperature_2m_max"][i]
             tmin = daily["temperature_2m_min"][i]
             rain_chance = daily["precipitation_probability_max"][i]
             day_code = daily["weather_code"][i]
             day_condition = WEATHER_CODES.get(day_code, "unknown")
-            reply += f"  • {date}: {tmin}–{tmax}°C, {day_condition}, {rain_chance}% chance of rain\n"
+            day_label = friendly_day(date_str)
+            reply += f"  • {day_label}: {tmin}–{tmax}°C, {day_condition}, {rain_chance}% chance of rain\n"
 
-    # Simple alert logic — extend this with IMD thresholds for production use
     max_rain_chance = max(daily.get("precipitation_probability_max", [0]))
     if max_rain_chance and max_rain_chance >= 70:
         reply += "\n⚠️ Heavy rain likely in the coming days — consider planning around it."
-
-    # ---- LLM INTEGRATION POINT ----
-    # Replace the return below with something like:
-    #
-    # llm_response = call_llm(
-    #     system_prompt="You are WeatherGPT, a helpful assistant that explains "
-    #                   "weather forecasts in clear, simple language.",
-    #     user_message=user_message,
-    #     context_data=weather_json,
-    # )
-    # return llm_response
 
     return reply
 
@@ -123,11 +118,27 @@ def chat():
     if not place_name:
         return jsonify({"error": "Please specify a place name."}), 400
 
-    place = geocode_place(place_name)
+    try:
+        place = geocode_place(place_name)
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 429:
+            return jsonify({"error": "Weather service is busy right now (rate limited). Please wait a minute and try again."}), 503
+        return jsonify({"error": "Could not look up that location right now. Please try again."}), 502
+    except requests.exceptions.RequestException:
+        return jsonify({"error": "Could not reach the location service. Please try again."}), 502
+
     if not place:
         return jsonify({"error": f"Could not find location '{place_name}'."}), 404
 
-    weather_json = get_weather(place["lat"], place["lon"])
+    try:
+        weather_json = get_weather(place["lat"], place["lon"])
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 429:
+            return jsonify({"error": "Weather service is busy right now (rate limited). Please wait a minute and try again."}), 503
+        return jsonify({"error": "Could not fetch weather data right now. Please try again."}), 502
+    except requests.exceptions.RequestException:
+        return jsonify({"error": "Could not reach the weather service. Please try again."}), 502
+
     reply = generate_reply(place, weather_json, user_message)
 
     return jsonify({
